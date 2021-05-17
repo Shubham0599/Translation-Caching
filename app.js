@@ -1,7 +1,7 @@
 const express=require('express');
 const  bodyParser = require('body-parser')
 const translate = require('@vitalets/google-translate-api');
-//const redis= require('redis');
+const redis= require('redis');
 const app=express();
 
 
@@ -12,7 +12,7 @@ app.use(express.static("public"));
 
 const port=process.env.PORT || 3000;
 const redis_port=process.env.PORT||6379;
-//const client=redis.createClient(redis_port);
+const client=redis.createClient(redis_port);
 
 app.get('/',(req,res)=>{
     res.render('index',{initial_data:'',option:'',final_data:''});
@@ -40,7 +40,7 @@ app.get('/',(req,res)=>{
 // function setresponse(init,final){
 //     return init +" "+final;
 // }
-client 
+
 function fromapi(req,res,next){
     const {speech,language}=req.body;
     console.log(speech+" "+language);
@@ -48,7 +48,7 @@ function fromapi(req,res,next){
       console.log(response.text);
       const feeddata=req.body.speech+req.body.language;
       //redis part 
-     // client.setex(feeddata,3600,response.text);
+      client.setex(feeddata,3600,response.text);
         res.render('index',{initial_data:speech,option:language,final_data:response.text})
    // res.send(setresponse(feeddata,response.text));
     }).catch(err => {
@@ -61,18 +61,17 @@ function cache(req,res,next){
     const {speech,language}=req.body;
     const feeddata=req.body.speech+req.body.language;
 
-    // client.get(feeddata,(err,data)=>{
-    //     if(err)throw err;
-    //     if(data!=null){
-    //         console.log("data "+data);
-    //         console.log("inside caching...")
-    //         res.render('index',{initial_data:speech,option:language,final_data:data})
-    //         //res.send(setresponse(feeddata,data));
-    //     }else{
-    //         next();
-    //     }
-    // })
-    res.render('index',{initial_data:speech,option:language,final_data:data})
+    client.get(feeddata,(err,data)=>{
+        if(err)throw err;
+        if(data!=null){
+            console.log("data "+data);
+            console.log("inside caching...")
+            res.render('index',{initial_data:speech,option:language,final_data:data})
+            //res.send(setresponse(feeddata,data));
+        }else{
+            next();
+        }
+    })
 }
 
 app.post('/translate',cache,fromapi);
